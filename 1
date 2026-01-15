@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>RPG Życia</title>
+<style>
+body{background:#0b0e1a;color:#eaeaff;font-family:Segoe UI;padding:20px}
+h1,h2{text-align:center;color:#8f8cff}
+.stat, .panel{background:#151933;padding:15px;border-radius:14px;margin-bottom:20px}
+.bar{background:#2a2f55;height:18px;border-radius:10px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#7f5cff,#5ce1e6)}
+button{background:#2d3270;color:#fff;border:none;padding:6px 10px;border-radius:6px;margin:3px}
+.small{font-size:12px;opacity:.7}
+.ach{color:#ffd86b}
+.lock{opacity:.4}
+</style>
+</head>
+
+<body>
+<h1>🎮 RPG Twojego Życia</h1>
+
+<div class="panel" id="weekly"></div>
+<div class="panel" id="achievements"></div>
+<div id="game"></div>
+
+<script>
+const LEVEL_XP=200;
+const saveKey="rpg-life-3";
+const today=new Date().toISOString().slice(0,10);
+
+let data=JSON.parse(localStorage.getItem(saveKey))||{
+  stats:{},
+  weekly:{week:getWeek(),xp:0,count:0},
+  achievements:{},
+  log:{}
+};
+
+function getWeek(){
+  const d=new Date();
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate()-d.getDay()+1);
+  return d.toISOString().slice(0,10);
+}
+
+const baseStats={
+"Zdrowe odżywianie":[["Picie wody",10]],
+"Zdrowie psychiczne":[["Spacer",20],["Pamiętnik",10]],
+"Popkultura":[["Książka",40]]
+};
+
+for(let s in baseStats){
+  if(!data.stats[s]){
+    data.stats[s]={level:1,xp:0,tasks:baseStats[s],tree:[]};
+  }
+}
+
+function save(){localStorage.setItem(saveKey,JSON.stringify(data));}
+
+function addXP(stat,amount,task){
+  const s=data.stats[stat];
+  s.xp+=amount;
+  data.weekly.xp+=amount;
+  data.weekly.count++;
+
+  data.log[task]=(data.log[task]||0)+1;
+
+  if(s.xp>=LEVEL_XP){
+    s.xp-=LEVEL_XP;
+    s.level++;
+    alert(`🎉 LEVEL UP: ${stat} → ${s.level}`);
+  }
+  checkAchievements();
+  save();render();
+}
+
+const achievements={
+"50 spacerów":()=>data.log["Spacer"]>=50,
+"5 książek":()=>data.log["Książka"]>=5,
+"20 pamiętników":()=>data.log["Pamiętnik"]>=20,
+"100 zadań":()=>data.weekly.count>=100
+};
+
+function checkAchievements(){
+  for(let a in achievements){
+    if(!data.achievements[a] && achievements[a]()){
+      data.achievements[a]=true;
+      alert(`🏅 Achievement zdobyty: ${a}`);
+    }
+  }
+}
+
+function render(){
+  document.getElementById("weekly").innerHTML=
+    `<h2>📊 Tydzień</h2>
+     XP: ${data.weekly.xp}<br>
+     Zadania: ${data.weekly.count}`;
+
+  let achHTML="<h2>🏅 Achievementy</h2>";
+  for(let a in achievements){
+    achHTML+=`<div class="${data.achievements[a]?'ach':'lock'}">${a}</div>`;
+  }
+  document.getElementById("achievements").innerHTML=achHTML;
+
+  const g=document.getElementById("game");
+  g.innerHTML="";
+  for(let stat in data.stats){
+    const s=data.stats[stat];
+    const d=document.createElement("div");
+    d.className="stat";
+    d.innerHTML=`<h2>${stat} — Lvl ${s.level}</h2>
+      <div class="bar"><div class="fill" style="width:${s.xp/LEVEL_XP*100}%"></div></div>`;
+    s.tasks.forEach(t=>{
+      const b=document.createElement("button");
+      b.textContent=`${t[0]} +${t[1]}XP`;
+      b.onclick=()=>addXP(stat,t[1],t[0]);
+      d.appendChild(b);
+    });
+    g.appendChild(d);
+  }
+}
+render();
+</script>
+</body>
+</html>
